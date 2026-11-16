@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campus Energy Saver Planner</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <!-- External Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Header / Top Bar -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-logo"><i class="fa-solid fa-leaf"></i></div>
+        <div>
+          <h1>Campus Energy Saver Planner</h1>
+          <p class="subtitle">Smart Classroom Meter Telemetry &amp; Wastage Control</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <!-- Timeframe Selector: Hour-wise, Day-wise, Month-wise -->
+        <div class="timeframe-switcher" role="group" aria-label="Timeframe Selector">
+          <button type="button" class="tf-btn active" data-tf="hour">Hour-wise (1h)</button>
+          <button type="button" class="tf-btn" data-tf="day">Day-wise (8h)</button>
+          <button type="button" class="tf-btn" data-tf="month">Month-wise (26d)</button>
+        </div>
+
+        <button id="toggleGraphsBtn" class="btn btn-outline">
+          <i class="fa-solid fa-chart-column"></i> <span>Show Graphs</span>
+        </button>
+
+        <button id="openAddModalBtn" class="btn btn-primary">
+          <i class="fa-solid fa-plus"></i> Add Classroom
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <!-- 1. Top Summary KPI Cards -->
+    <section class="kpi-grid" aria-label="Energy Summary Metrics">
+      <div class="kpi-card">
+        <div class="kpi-icon blue"><i class="fa-solid fa-school"></i></div>
+        <div class="kpi-info">
+          <span class="kpi-label">Active Classrooms</span>
+          <div class="kpi-value" id="kpiActiveRooms">0 / 0</div>
+          <span class="kpi-sub" id="kpiOccupiedText">0 Occupied · 0 Empty</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon emerald"><i class="fa-solid fa-bolt"></i></div>
+        <div class="kpi-info">
+          <span class="kpi-label" id="kpiEnergyLabel">Live Power / Hourly Load</span>
+          <div class="kpi-value mono" id="kpiTotalPower">0.00 kW</div>
+          <span class="kpi-sub mono" id="kpiEnergySub">0 W live · 0.00 kWh / hr</span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-icon amber"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+        <div class="kpi-info">
+          <span class="kpi-label" id="kpiCostLabel">Estimated Hourly Cost</span>
+          <div class="kpi-value mono" id="kpiEstCost">₹0.00</div>
+          <span class="kpi-sub">@ ₹8.50 / kWh commercial tariff</span>
+        </div>
+      </div>
+
+      <div class="kpi-card" id="kpiAlertCard">
+        <div class="kpi-icon red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="kpi-info">
+          <span class="kpi-label">Wastage Alerts</span>
+          <div class="kpi-value" id="kpiWastageCount">0 Rooms</div>
+          <span class="kpi-sub" id="kpiWastageSub">No avoidable energy waste</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Interactive Graphs Panel (Toggled via "Show Graphs" button) -->
+    <section id="graphsPanel" class="graphs-panel hidden" aria-label="Energy Graphs">
+      <div class="panel-header">
+        <div>
+          <h2><i class="fa-solid fa-chart-line"></i> Interactive Energy Visualizations (<span id="graphTimeframeTag">Hour-wise</span>)</h2>
+          <p>Live consumption breakdown by appliance category, classroom load, and projected usage trend</p>
+        </div>
+        <button id="closeGraphsBtn" class="btn btn-sm btn-outline">
+          <i class="fa-solid fa-xmark"></i> Hide Graphs
+        </button>
+      </div>
+
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Energy by Appliance Type (<span class="unit-label">kWh</span>)</h3>
+          <div class="chart-wrapper">
+            <canvas id="applianceChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3>Consumption by Classroom (<span class="unit-label">kWh</span>)</h3>
+          <div class="chart-wrapper">
+            <canvas id="classroomChart"></canvas>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h3 id="trendChartTitle">Hourly Load Profile (8 AM – 5 PM)</h3>
+          <div class="chart-wrapper">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Energy Saver Advisor & Wastage Alert Panel -->
+    <section class="advisor-panel" aria-label="Energy Saver Advisor">
+      <div class="panel-header">
+        <div>
+          <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Energy Saver Advisor &amp; Wastage Detection</h2>
+          <p>Real-time rules engine analyzing unoccupied rooms and appliance load (<span id="advisorTimeframeTag">Hour-wise</span> impact)</p>
+        </div>
+        <button id="shutdownAllWastedBtn" class="btn btn-danger btn-sm hidden">
+          <i class="fa-solid fa-power-off"></i> Shut Down All Wasted Rooms
+        </button>
+      </div>
+      <div id="advisorList" class="advisor-list"></div>
+    </section>
+
+    <!-- 4. Classrooms Grid & Smart Meters -->
+    <section class="rooms-section">
+      <div class="section-toolbar">
+        <div>
+          <h2><i class="fa-solid fa-gauge-high"></i> Smart Classroom Energy Meters</h2>
+          <p class="section-sub">Click any device switch to toggle ON/OFF and see real-time Wattage (W) and cost updates</p>
+        </div>
+        <div class="toolbar-controls">
+          <div class="filter-pills">
+            <button class="filter-btn active" data-filter="all">All Rooms</button>
+            <button class="filter-btn" data-filter="wastage">Wastage Alerts</button>
+            <button class="filter-btn" data-filter="occupied">Occupied</button>
+            <button class="filter-btn" data-filter="empty">Empty</button>
+          </div>
+          <button id="resetDemoBtn" class="btn btn-sm btn-outline" title="Restore 4 default classrooms">
+            <i class="fa-solid fa-rotate-left"></i> Reset Demo
+          </button>
+        </div>
+      </div>
+
+      <div id="classroomsGrid" class="classrooms-grid"></div>
+    </section>
+  </main>
+
+  <!-- Add Classroom Modal -->
+  <div id="addRoomModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle"><i class="fa-solid fa-plus-circle"></i> Add New Classroom</h3>
+        <button id="closeModalBtn" class="icon-btn" aria-label="Close modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="addRoomForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="roomName">Classroom Name / Number *</label>
+            <input type="text" id="roomName" placeholder="e.g., Lab 302 or Room 104" required />
+          </div>
+          <div class="form-group">
+            <label for="roomFloor">Floor / Block *</label>
+            <input type="text" id="roomFloor" placeholder="e.g., 3rd Floor, Science Block" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="roomOccupancy">Initial Occupancy Status</label>
+            <select id="roomOccupancy">
+              <option value="empty">Empty / Unoccupied</option>
+              <option value="occupied">Occupied (Class in Session)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="initialPowerState">Initial Devices State</label>
+            <select id="initialPowerState">
+              <option value="on">All Devices ON (Test Wastage/Load)</option>
+              <option value="off">All Devices OFF (Eco Standby)</option>
+              <option value="custom">Custom (Lights &amp; Fans ON only)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="device-qty-box">
+          <div class="qty-box-header">
+            <span><i class="fa-solid fa-sliders"></i> Configure Appliance Quantities</span>
+            <span class="mono" id="modalPreviewWatts">Rated Load: 2,340 W</span>
+          </div>
+
+          <div class="qty-grid">
+            <div class="qty-item">
+              <label for="qtyLights"><i class="fa-regular fa-lightbulb"></i> Lights <small>(30W each)</small></label>
+              <input type="number" id="qtyLights" min="0" max="50" value="4" required />
+            </div>
+            <div class="qty-item">
+              <label for="qtyFans"><i class="fa-solid fa-fan"></i> Fans <small>(75W each)</small></label>
+              <input type="number" id="qtyFans" min="0" max="30" value="2" required />
+            </div>
+            <div class="qty-item">
+              <label for="qtyProjectors"><i class="fa-solid fa-video"></i> Projectors <small>(250W each)</small></label>
+              <input type="number" id="qtyProjectors" min="0" max="10" value="1" required />
+            </div>
+            <div class="qty-item">
+              <label for="qtyAcs"><i class="fa-solid fa-snowflake"></i> ACs <small>(1500W each)</small></label>
+              <input type="number" id="qtyAcs" min="0" max="10" value="1" required />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelModalBtn" class="btn btn-outline">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Add Classroom &amp; Connect Meter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- External JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>
